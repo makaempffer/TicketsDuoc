@@ -1,0 +1,107 @@
+### 1. Create User
+POST {{usersUrl}}/users
+Content-Type: application/json
+
+{
+  "name": "Alice Smith",
+  "email": "alice@example.com"
+}
+
+> {%
+    client.test("User created", function() {
+        client.assert(response.status === 201, "Response status is not 201");
+        client.assert(response.body.id != null, "User ID missing");
+    });
+    client.global.set("userId", response.body.id);
+%}
+
+### 2. Create Event
+POST {{eventsUrl}}/events
+Content-Type: application/json
+
+{
+  "name": "Festival 2026",
+  "description": "Live Music Event",
+  "venue": "Santiago Arena",
+  "date": "2026-12-31T20:00:00",
+  "totalSeats": 100
+}
+
+> {%
+    client.test("Event created", function() {
+        client.assert(response.status === 201, "Response status is not 201");
+        client.assert(response.body.id != null, "Event ID missing");
+        client.assert(response.body.availableSeats === 100, "Available seats mismatch");
+    });
+    client.global.set("eventId", response.body.id);
+%}
+
+### 3. Create Ticket
+POST {{ticketsUrl}}/tickets
+Content-Type: application/json
+
+{
+  "eventId": {{eventId}},
+  "seat": "VIP-1",
+  "price": 85.50
+}
+
+> {%
+    client.test("Ticket created", function() {
+        client.assert(response.status === 201, "Response status is not 201");
+        client.assert(response.body.id != null, "Ticket ID missing");
+        client.assert(response.body.status === "AVAILABLE", "Status is not AVAILABLE");
+    });
+    client.global.set("ticketId", response.body.id);
+%}
+
+### 4. Create Order (Auto-reserves Ticket)
+POST {{ordersUrl}}/orders
+Content-Type: application/json
+
+{
+  "userId": {{userId}},
+  "ticketId": {{ticketId}}
+}
+
+> {%
+    client.test("Order created and ticket reserved", function() {
+        client.assert(response.status === 201, "Response status is not 201");
+        client.assert(response.body.id != null, "Order ID missing");
+        client.assert(response.body.status === "PENDING", "Status is not PENDING");
+        client.assert(response.body.totalPrice === 85.50, "Price mismatch");
+    });
+    client.global.set("orderId", response.body.id);
+%}
+
+### 5. Verify Ticket Status is RESERVED
+GET {{ticketsUrl}}/tickets/{{ticketId}}
+
+> {%
+    client.test("Ticket is RESERVED", function() {
+        client.assert(response.status === 200, "Response status is not 200");
+        client.assert(response.body.status === "RESERVED", "Status should be RESERVED");
+    });
+%}
+
+### 6. Cancel Order
+PUT {{ordersUrl}}/orders/{{orderId}}/cancel
+
+> {%
+    client.test("Order is CANCELLED", function() {
+        client.assert(response.status === 200, "Response status is not 200");
+        client.assert(response.body.status === "CANCELLED", "Status should be CANCELLED");
+    });
+%}
+
+### 7. List All Users
+GET {{usersUrl}}/users
+
+### 8. List All Events
+GET {{eventsUrl}}/events
+
+### 9. List All Tickets
+GET {{ticketsUrl}}/tickets
+
+### 10. List All Orders
+GET {{ordersUrl}}/orders
